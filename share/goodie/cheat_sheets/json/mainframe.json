@@ -9,8 +9,7 @@
     },
     "aliases": [
         "main frame",
-        "Mainframe cli",
-        "Main Frame commands"
+        "mainframe cli"
     ],
     "section_order": [
 	"Job Entry Subsystem 2 (JES2)",
