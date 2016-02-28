@@ -4,10 +4,13 @@ package DDG::Goodie::Conversions;
 use strict;
 use DDG::Goodie;
 with 'DDG::GoodieRole::NumberStyler';
+with 'DDG::GoodieRole::WhatIs';
 
 use Math::Round qw/nearest/;
 use utf8;
 use YAML::XS 'LoadFile';
+
+use Data::Dump qw(dump);
 
 zci answer_type => 'conversions';
 zci is_cached   => 1;
@@ -34,6 +37,15 @@ my $question_prefix = qr/(?<prefix>convert|what (?:is|are|does)|how (?:much|many
 # guards and matches regex
 my $factor_re = join('|', ('a', 'an', number_style_regex()));
 my $guard = qr/^(?<question>$question_prefix)\s?(?<left_num>$factor_re*)\s?(?<left_unit>$keys)\s(?<connecting_word>in|to|into|(?:in to)|from)?\s?(?<right_num>$factor_re*)\s?(?:of\s)?(?<right_unit>$keys)[\?]?$/i;
+
+my $matcher = wi_translation(
+    groups => ['conversion', 'bidirectional'],
+    options => {
+        to => qr/$keys/,
+        from => qr/$keys/
+    }
+);
+
 
 # exceptions for pluralized forms:
 my %plural_exceptions = (
@@ -72,9 +84,16 @@ handle query_lc => sub {
     # hack - convert "oz" to "fl oz" if "ml" contained in query
     s/\b(oz|ounces)/fl oz/ if(/(ml|cup[s]?)/ && not /fl oz/);
     
+    my $match = $matcher->full_match($_);
+    
+    unless($match) {
+        warn dump($match);
+        return;
+    }
+    
     # guard the query from spurious matches
     return unless $_ =~ /$guard/;
-    
+        
     my @matches = ($+{'left_unit'}, $+{'right_unit'});
     return if ("" ne $+{'left_num'} && "" ne $+{'right_num'});
     my $factor = $+{'left_num'};
