@@ -21,10 +21,10 @@ sub _build_wi {
 # say 'What is X in Y?'.
 _build_wi wi_translation => sub {
     my %got_options = @_;
-    my $groups = ['translation'];
-    push $groups, @{$got_options{groups}} if defined $got_options{groups};
+    my @groups = ('translation');
+    push @groups, @{$got_options{groups}} if defined $got_options{groups};
     my %presets = (
-        groups => $groups,
+        groups => \@groups,
     );
     return (%got_options, %presets);
 };
@@ -197,15 +197,11 @@ Required Groups:
 
 =over
 
-C<translation>, C<language>, C<from>
-
-I<or>
-
-C<translation>, C<language>, C<bidirectional>
+C<translation>, C<language>, (C<from> I<or> C<bidirectional>).
 
 =back
 
-Required Options: C<from>, C<to>.
+Required Options: C<from>.
 
 Optional Options: C<primary>.
 
@@ -243,7 +239,7 @@ Required Groups:
 
 =over
 
-C<conversion>, C<bidirectional> I<or> C<conversion>, C<to>.
+C<conversion>, (C<bidirectional> I<or> C<to>).
 
 =back
 
@@ -261,7 +257,7 @@ Required Groups:
 
 =over
 
-C<conversion>, C<bidirectional> I<or> C<conversion>, C<from>.
+C<conversion>, (C<bidirectional> I<or> C<from>).
 
 =back
 

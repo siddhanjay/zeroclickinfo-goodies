@@ -622,6 +622,10 @@ subtest 'WhatIs' => sub {
         new_ok('WhatIsTester', [], 'Applied to a class');
     };
 
+#######################################################################
+#                               Helpers                               #
+#######################################################################
+
     sub build_value_test {
         my ($trans, $expecting_value, %forms) = @_;
         return sub {
@@ -745,6 +749,25 @@ subtest 'WhatIs' => sub {
     sub test_custom { modifier_test(\&wi_with_test)->(@_) };
     sub test_translation { modifier_test(\&get_trans_with_test)->(@_) };
 
+    sub hash_tester {
+        my $hashf = shift;
+        return sub {
+            my %tests = @_;
+            return sub {
+                while (my ($test_name, $params) = each %tests) {
+                    subtest $test_name => sub { $hashf->(%{$params}) };
+                };
+            };
+        };
+    }
+
+    sub wi_translation_tests { hash_tester(\&test_translation)->(@_) }
+    sub wi_custom_tests { hash_tester(\&test_custom)->(@_) }
+
+#######################################################################
+#                      Test Queries and Results                       #
+#######################################################################
+
     add_option_queries 'what is conversion' =>
         { direction => 'to' }, (
         "What is foo in Goatee?"    => 'foo',
@@ -831,19 +854,9 @@ subtest 'WhatIs' => sub {
         'translate hello from Gribble' => 'hello',
     );
 
-    sub hash_tester {
-        my $hashf = shift;
-        return sub {
-            my %tests = @_;
-            return sub {
-                while (my ($test_name, $params) = each %tests) {
-                    subtest $test_name => sub { $hashf->(%{$params}) };
-                };
-            };
-        };
-    }
-
-    sub wi_translation_tests { hash_tester(\&test_translation)->(@_) }
+#######################################################################
+#                                Tests                                #
+#######################################################################
 
     subtest 'Translations' => wi_translation_tests(
         'What is conversion' => {
@@ -877,11 +890,10 @@ subtest 'WhatIs' => sub {
             modifiers   => ['language translation', 'what is conversion'],
             ignore      => qr/^what is/i,
         },
-        'Language from (with to)' => {
-            use_options => ['from', 'to'],
-            use_groups  => ['language', 'bidirectional'],
-            modifiers   => ['language translation from',
-                            'what is conversion'],
+        'Language from' => {
+            use_options => ['from'],
+            use_groups  => ['language', 'from'],
+            modifiers   => ['language translation from'],
             ignore      => ['conversion in with translation',
                             qr/^translate/i],
         },
@@ -900,7 +912,6 @@ subtest 'WhatIs' => sub {
             ignore      => qr/^what is|in/i,
         },
     );
-    sub wi_custom_tests { hash_tester(\&test_custom)->(@_) }
 
     subtest 'Custom' => wi_custom_tests(
         'Meaning' => {
@@ -953,6 +964,50 @@ subtest 'WhatIs' => sub {
                             'targeted property (singular)'],
         },
     );
+
+    subtest 'Expected Failures' => sub {
+        subtest 'Invalid Group Combinations' => sub {
+            my @invalid_group_sets = (
+                ['bidirectional', 'from', 'to'],
+                ['bidirectional'],
+                ['from'],
+                ['language'],
+                ['postfix'],
+                ['prefix', 'postfix'],
+                ['prefix'],
+                ['to', 'from'],
+                ['to'],
+            );
+            foreach my $groups (@invalid_group_sets) {
+                throws_ok { WhatIsTester::wi_custom->( groups => $groups ) }
+                        qr/Could not assign any modifiers/,
+                        ('Should not be able to assign modifiers with groups ' . join ' and ', @{$groups});
+            }
+        };
+        subtest 'Required Options' => sub {
+            my %invalid_option_sets = (
+                "'to'" => [['conversion', 'to'],
+                           ['translation', 'written'],
+                           ['translation', 'spoken'],
+                           ['translation'],
+                           ['conversion', 'bidirectional'],
+                           ['translation', 'language']],
+                "'to' or 'from'" => [['conversion']],
+                "'from'" => [['conversion', 'from'],
+                             ['translation', 'language', 'from']],
+                "'prefix_command' or 'command'" => [['prefix', 'imperative']],
+                "'postfix_command' or 'command'" => [['postfix', 'imperative']],
+                "'singular_property' or 'property'" => [['property']],
+            );
+            while (my ($req_option, $groupss) = each %invalid_option_sets) {
+                foreach my $groups (@{$groupss}) {
+                    throws_ok { WhatIsTester::wi_custom->( groups => $groups ) }
+                            qr/requires (at least one of )?the $req_option option/,
+                            "Groups [@{[join ', ', @{$groups}]}] should require the $req_option option to be set";
+                }
+            }
+        }
+    }
 };
 
 done_testing;
